@@ -1,0 +1,73 @@
+# This sample deploys a single-GPU PyTorch training workload using NVIDIA's official PyTorch container,
+# then defines a Migration CR to move it to another node.
+#
+# IMPORTANT:
+# - Replace <CUDA12_8_TAG> with an NGC PyTorch image tag that uses CUDA 12.8 (e.g., "<yyyy.mm>-py3" for the month that ships CUDA 12.8).
+#   Image format: nvcr.io/nvidia/pytorch:<CUDA12_8_TAG>-py3
+# - Set spec.destinationNode below to your actual target node name (kubectl get nodes).
+# - Ensure your cluster has the NVIDIA device plugin installed so nvidia.com/gpu is available.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pytorch-train
+  namespace: ml
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: pytorch-train
+  template:
+    metadata:
+      labels:
+        app: pytorch-train
+    spec:
+      # If your NGC registry requires authentication, create a secret (e.g., "ngc-creds") and uncomment:
+      # imagePullSecrets:
+      # - name: ngc-creds
+      containers:
+      - name: trainer
+        # Replace <CUDA12_8_TAG> with a PyTorch tag that uses CUDA 12.8
+        image: nvcr.io/nvidia/pytorch:24.01-py3
+        imagePullPolicy: IfNotPresent
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+            cpu: "2"
+            memory: 16Gi
+          requests:
+            nvidia.com/gpu: 1
+            cpu: "1"
+            memory: 8Gi
+        env:
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+        command: ["python", "-u", "-c"]
+        args:
+        - |
+          import torch, time
+          print('PyTorch version:', torch.__version__)
+          print('CUDA available:', torch.cuda.is_available())
+          print('CUDA version as seen by PyTorch:', torch.version.cuda)
+          device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+          x = torch.randn(4096, 4096, device=device)
+          for i in range(200000):
+              x = x @ x
+              if i % 20 == 0:
+                  print(f'step {i}, mem {torch.cuda.memory_allocated()//(1024*1024) if torch.cuda.is_available() else 0} MiB')
+              time.sleep(0.1)
+      # Toleration helps schedule onto GPU nodes if they are tainted
+      tolerations:
+      - key: "nvidia.com/gpu"
+        operator: "Exists"
+        effect: "NoSchedule"
+      # Optionally constrain to your GPU nodes (update to match your cluster labels)
+      # nodeSelector:
+      #   accelerator: nvidia

@@ -1,0 +1,15 @@
+---
+apiVersion: api.my.domain/v1alpha1
+kind: Migration
+metadata:
+  name: migrate-pytorch-train
+  namespace: ml
+spec:
+  # Migrate all Pods belonging to this Deployment
+  deployment: pytorch-train
+  # Source namespace where the Deployment/Pods currently run
+  namespace: ml
+  # Set this to the node name you want to migrate to (kubectl get nodes)
+  destinationNode: gpu3
+  # Namespace to recreate the Pod(s) on the destination
+  destinationNamespace: ml
