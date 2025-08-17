@@ -6,7 +6,7 @@ metadata:
   namespace: ml
 spec:
   # Migrate all Pods belonging to this Deployment
-  deployment: pytorch-train
+  podname: pytorch-train-5f694c6f78-rkrzd
   # Source namespace where the Deployment/Pods currently run
   namespace: ml
   # Set this to the node name you want to migrate to (kubectl get nodes)
